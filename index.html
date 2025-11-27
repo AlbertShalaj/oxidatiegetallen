@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oxidatiegetal Bepaler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #f0f2f5;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        .input-cell {
+            transition: all 0.2s;
+        }
+
+        .input-cell:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-4 flex items-center justify-center">
+    <div id="root" class="w-full max-w-5xl"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Converteer getal naar romeins cijfer
+        const toRoman = (num) => {
+            if (num === 0 || num === '0') return '0';
+            if (!num) return '';
+            const sign = num < 0 ? '-' : '';
+            const absNum = Math.abs(num);
+            const map = [[10, 'X'], [9, 'IX'], [8, 'VIII'], [7, 'VII'], [6, 'VI'], [5, 'V'], [4, 'IV'], [3, 'III'], [2, 'II'], [1, 'I']];
+            for (const [val, rom] of map) if (absNum === val) return sign + rom;
+            return sign + absNum;
+        };
+
+        const fromRoman = (str) => {
+            if (!str) return null;
+            str = str.toUpperCase().trim();
+            if (str === '0') return 0;
+            const romanToNum = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10 };
+            if (str.startsWith('-')) {
+                const val = romanToNum[str.substring(1)];
+                return val ? -val : null;
+            }
+            if (str.startsWith('+')) str = str.substring(1);
+            return romanToNum[str] || parseInt(str) || null;
+        };
+
+        const COMPOUNDS = [
+            // Ongeladen Moleculen
+            { formula: 'CO₂', name: 'Koolstofdioxide', charge: 0, atoms: [{ el: 'C', n: 1, ox: 4 }, { el: 'O', n: 2, ox: -2 }], hint: 'O is meestal -II. Totale lading is 0.' },
+            { formula: 'H₂SO₄', name: 'Zwavelzuur', charge: 0, atoms: [{ el: 'H', n: 2, ox: 1 }, { el: 'S', n: 1, ox: 6 }, { el: 'O', n: 4, ox: -2 }], hint: 'H=+I, O=-II. Totale lading is 0.' },
+            { formula: 'HNO₃', name: 'Salpeterzuur', charge: 0, atoms: [{ el: 'H', n: 1, ox: 1 }, { el: 'N', n: 1, ox: 5 }, { el: 'O', n: 3, ox: -2 }], hint: 'H=+I, O=-II. Totale lading is 0.' },
+            { formula: 'KMnO₄', name: 'Kaliumpermanganaat', charge: 0, atoms: [{ el: 'K', n: 1, ox: 1 }, { el: 'Mn', n: 1, ox: 7 }, { el: 'O', n: 4, ox: -2 }], hint: 'K (groep Ia) = +I, O=-II.' },
+            { formula: 'Fe₂O₃', name: 'IJzer(III)oxide', charge: 0, atoms: [{ el: 'Fe', n: 2, ox: 3 }, { el: 'O', n: 3, ox: -2 }], hint: 'O=-II. Bereken Fe.' },
+
+            // Ionen (Geladen)
+            { formula: 'SO₄²⁻', name: 'Sulfaat-ion', charge: -2, atoms: [{ el: 'S', n: 1, ox: 6 }, { el: 'O', n: 4, ox: -2 }], hint: 'O=-II. Totale lading is -2!' },
+            { formula: 'NO₃⁻', name: 'Nitraat-ion', charge: -1, atoms: [{ el: 'N', n: 1, ox: 5 }, { el: 'O', n: 3, ox: -2 }], hint: 'O=-II. Totale lading is -1!' },
+            { formula: 'NH₄⁺', name: 'Ammonium-ion', charge: 1, atoms: [{ el: 'N', n: 1, ox: -3 }, { el: 'H', n: 4, ox: 1 }], hint: 'H=+I. Totale lading is +1!' },
+            { formula: 'PO₄³⁻', name: 'Fosfaat-ion', charge: -3, atoms: [{ el: 'P', n: 1, ox: 5 }, { el: 'O', n: 4, ox: -2 }], hint: 'O=-II. Totale lading is -3!' },
+            { formula: 'Cr₂O₇²⁻', name: 'Dichromaat-ion', charge: -2, atoms: [{ el: 'Cr', n: 2, ox: 6 }, { el: 'O', n: 7, ox: -2 }], hint: 'O=-II. Totale lading is -2!' },
+            { formula: 'MnO₄⁻', name: 'Permanganaat-ion', charge: -1, atoms: [{ el: 'Mn', n: 1, ox: 7 }, { el: 'O', n: 4, ox: -2 }], hint: 'O=-II. Totale lading is -1!' }
+        ];
+
+        const App = () => {
+            const [started, setStarted] = useState(false);
+            const [currentCompound, setCurrentCompound] = useState(COMPOUNDS[0]);
+            const [inputs, setInputs] = useState({}); // { 'el_idx_field': value }
+            const [feedback, setFeedback] = useState(null);
+            const [showHint, setShowHint] = useState(false);
+
+            const reset = (comp) => {
+                setCurrentCompound(comp);
+                setInputs({});
+                setFeedback(null);
+                setShowHint(false);
+            };
+
+            const handleInputChange = (idx, field, value) => {
+                setInputs(prev => ({ ...prev, [`${idx}_${field}`]: value }));
+            };
+
+            const checkAnswers = () => {
+                let allCorrect = true;
+                let totalSum = 0;
+
+                // Check per atom
+                currentCompound.atoms.forEach((atom, idx) => {
+                    const inputOxStr = inputs[`${idx}_ox`];
+                    const inputNStr = inputs[`${idx}_n`];
+
+                    const inputOx = fromRoman(inputOxStr);
+                    const inputN = parseInt(inputNStr);
+
+                    if (inputOx !== atom.ox || inputN !== atom.n) {
+                        allCorrect = false;
+                    }
+
+                    if (inputOx !== null && !isNaN(inputN)) {
+                        totalSum += inputOx * inputN;
+                    }
+                });
+
+                if (allCorrect) {
+                    setFeedback({ type: 'success', msg: `Correct! De som is ${totalSum} en dat klopt met de lading (${currentCompound.charge}).` });
+                } else {
+                    setFeedback({ type: 'error', msg: 'Nog niet helemaal juist. Controleer je oxidatiegetallen en aantallen.' });
+                }
+            };
+
+            if (!started) {
+                return (
+                    <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center mx-auto mt-20">
+                        <h1 className="text-3xl font-bold mb-2 text-gray-800">Oxidatiegetal Bepaler</h1>
+                        <p className="text-gray-600 mb-6">Leer oxidatiegetallen bepalen met de tabel-methode!</p>
+                        <button onClick={() => setStarted(true)} className="w-full py-4 rounded-xl font-bold text-lg text-white bg-blue-600 hover:bg-blue-700 transition">
+                            Start Oefening
+                        </button>
+                    </div>
+                );
+            }
+
+            // Calculate current totals for display
+            const currentTotals = currentCompound.atoms.map((atom, idx) => {
+                const ox = fromRoman(inputs[`${idx}_ox`]);
+                const n = parseInt(inputs[`${idx}_n`]);
+                if (ox !== null && !isNaN(n)) return ox * n;
+                return null;
+            });
+
+            const currentSum = currentTotals.reduce((acc, val) => acc + (val || 0), 0);
+
+            return (
+                <div className="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-4xl mx-auto mt-10">
+                    <div className="bg-blue-700 p-6 text-white flex justify-between items-center">
+                        <div>
+                            <h2 className="text-2xl font-bold">Oxidatiegetal Tabel</h2>
+                            <p className="text-blue-100">Vul de tabel in om de oxidatiegetallen te vinden</p>
+                        </div>
+                        <div className="bg-white/20 px-4 py-2 rounded-lg">
+                            <span className="font-bold">Lading: </span>
+                            <span className="text-2xl font-mono">{currentCompound.charge > 0 ? '+' + currentCompound.charge : currentCompound.charge}</span>
+                        </div>
+                    </div>
+
+                    <div className="p-8">
+                        {/* Compound Selection */}
+                        <div className="flex flex-wrap gap-2 mb-8 justify-center">
+                            {COMPOUNDS.map((comp, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => reset(comp)}
+                                    className={`px-4 py-2 rounded-lg font-bold transition ${currentCompound === comp ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                >
+                                    {comp.formula}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Main Workspace */}
+                        <div className="flex flex-col items-center">
+                            <div className="text-6xl font-bold text-gray-800 mb-2 font-mono">{currentCompound.formula}</div>
+                            <div className="text-gray-500 mb-8">{currentCompound.name}</div>
+
+                            {/* The Table */}
+                            <div className="w-full overflow-x-auto mb-6">
+                                <table className="w-full border-collapse text-center">
+                                    <thead>
+                                        <tr>
+                                            <th className="p-4 text-left text-gray-400 font-normal w-32">Atoomsoort</th>
+                                            {currentCompound.atoms.map((atom, idx) => (
+                                                <th key={idx} className="p-4 text-2xl font-bold text-gray-700 border-b-2 border-gray-200 bg-gray-50">
+                                                    {atom.el}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {/* Row 1: Oxidatiegetal */}
+                                        <tr>
+                                            <td className="p-4 text-left font-bold text-gray-600">Oxidatiegetal (OG)</td>
+                                            {currentCompound.atoms.map((atom, idx) => (
+                                                <td key={idx} className="p-2 border-b border-gray-100">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="bv. -II"
+                                                        className="input-cell w-24 text-center p-2 border-2 border-gray-300 rounded-lg font-bold text-lg text-gray-800 outline-none placeholder-gray-300 uppercase"
+                                                        value={inputs[`${idx}_ox`] || ''}
+                                                        onChange={(e) => handleInputChange(idx, 'ox', e.target.value)}
+                                                    />
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        {/* Row 2: Aantal */}
+                                        <tr>
+                                            <td className="p-4 text-left font-bold text-gray-600">Aantal (n)</td>
+                                            {currentCompound.atoms.map((atom, idx) => (
+                                                <td key={idx} className="p-2 border-b border-gray-100">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="n"
+                                                        className="input-cell w-24 text-center p-2 border-2 border-gray-300 rounded-lg font-bold text-lg text-blue-600 outline-none placeholder-gray-300"
+                                                        value={inputs[`${idx}_n`] || ''}
+                                                        onChange={(e) => handleInputChange(idx, 'n', e.target.value)}
+                                                    />
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        {/* Row 3: Totaal */}
+                                        <tr className="bg-gray-50">
+                                            <td className="p-4 text-left font-bold text-gray-600">Totaal (OG × n)</td>
+                                            {currentCompound.atoms.map((atom, idx) => (
+                                                <td key={idx} className="p-4 font-mono text-xl font-bold text-gray-800">
+                                                    {currentTotals[idx] !== null ? currentTotals[idx] : '-'}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Sum Check */}
+                            <div className={`flex items-center gap-4 px-6 py-3 rounded-xl border-2 mb-6 transition-all ${currentSum === currentCompound.charge ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                                <span className="text-gray-500 font-bold">Totale Som:</span>
+                                <span className={`text-2xl font-mono font-bold ${currentSum === currentCompound.charge ? 'text-green-600' : 'text-gray-600'}`}>
+                                    {currentSum}
+                                </span>
+                                <span className="text-gray-400">moet gelijk zijn aan</span>
+                                <span className="text-xl font-mono font-bold text-gray-800">
+                                    {currentCompound.charge}
+                                </span>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="flex gap-4 w-full max-w-md">
+                                <button
+                                    onClick={() => setShowHint(!showHint)}
+                                    className="flex-1 py-3 px-6 rounded-xl font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border-2 border-blue-100 transition"
+                                >
+                                    {showHint ? 'Verberg Hint' : 'Hint'}
+                                </button>
+                                <button
+                                    onClick={checkAnswers}
+                                    className="flex-1 py-3 px-6 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition"
+                                >
+                                    Controleer
+                                </button>
+                            </div>
+
+                            {/* Feedback & Hint */}
+                            {showHint && (
+                                <div className="mt-4 p-4 bg-blue-50 text-blue-800 rounded-xl border border-blue-200 max-w-md text-center">
+                                    {currentCompound.hint}
+                                </div>
+                            )}
+
+                            {feedback && (
+                                <div className={`mt-4 p-4 rounded-xl border-2 font-bold text-center max-w-md ${feedback.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                                    {feedback.msg}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+
+</html>
