@@ -118,6 +118,12 @@
                 handleInputChange(idx, 'ox', newValStr);
             };
 
+            const adjustAmount = (idx, delta) => {
+                const currentVal = parseInt(inputs[`${idx}_n`]) || 0;
+                const newVal = Math.max(0, currentVal + delta);
+                handleInputChange(idx, 'n', newVal);
+            };
+
             const checkAnswers = () => {
                 let allCorrect = true;
                 let totalSum = 0;
@@ -242,10 +248,10 @@
                                                     <div className="relative inline-block">
                                                         <input
                                                             type="text"
-                                                            placeholder="bv. -II"
-                                                            className="input-cell w-24 text-center p-2 pr-8 border-2 border-gray-300 rounded-lg font-bold text-lg text-orange-600 outline-none placeholder-gray-300 uppercase relative z-10 bg-white"
+                                                            placeholder="0"
+                                                            readOnly
+                                                            className="input-cell w-24 text-center p-2 pr-8 border-2 border-gray-300 rounded-lg font-bold text-lg text-orange-600 outline-none cursor-default bg-gray-50 uppercase relative z-10"
                                                             value={inputs[`${idx}_ox`] || ''}
-                                                            onChange={(e) => handleInputChange(idx, 'ox', e.target.value)}
                                                         />
                                                         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 z-20">
                                                             <button
@@ -279,16 +285,32 @@
                                                         <div className="absolute bottom-0 text-gray-300 text-sm -mb-1">▼</div>
 
                                                         {/* Input Container on the side */}
-                                                        <div className="relative z-10 bg-white px-2 py-1 flex items-center gap-2 border border-gray-200 rounded-lg shadow-sm transform translate-x-8">
+                                                        <div className="relative z-10 bg-white px-2 py-1 flex items-center gap-1 border-2 border-gray-300 rounded-lg transform translate-x-8">
                                                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] text-gray-400 font-bold bg-white px-1 whitespace-nowrap">Aantal</div>
-                                                            <span className="text-gray-400 font-bold text-sm">×</span>
-                                                            <input
-                                                                type="number"
-                                                                placeholder="n"
-                                                                className="input-cell w-12 text-center p-1 border border-gray-300 rounded font-bold text-blue-600 outline-none placeholder-gray-300"
-                                                                value={inputs[`${idx}_n`] || ''}
-                                                                onChange={(e) => handleInputChange(idx, 'n', e.target.value)}
-                                                            />
+                                                            <span className="text-gray-400 font-bold text-sm mr-1">×</span>
+                                                            <div className="flex items-center">
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="0"
+                                                                    readOnly
+                                                                    className="input-cell w-10 text-center p-1 font-bold text-blue-600 outline-none cursor-default bg-transparent"
+                                                                    value={inputs[`${idx}_n`] || ''}
+                                                                />
+                                                                <div className="flex flex-col gap-0.5 ml-1">
+                                                                    <button
+                                                                        onClick={() => adjustAmount(idx, 1)}
+                                                                        className="w-5 h-4 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded text-[10px] text-blue-700 leading-none transition-colors"
+                                                                    >
+                                                                        ▲
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => adjustAmount(idx, -1)}
+                                                                        className="w-5 h-4 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded text-[10px] text-blue-700 leading-none transition-colors"
+                                                                    >
+                                                                        ▼
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>
